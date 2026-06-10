@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>0xDEADCODE :: corporate memory dump</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#07090a;
+    --panel:#0c1110;
+    --panel-edge:#15201c;
+    --phosphor:#36f9a3;
+    --phosphor-dim:#1c6b4a;
+    --magenta:#ff2e88;
+    --amber:#ffc857;
+    --ink:#cdeede;
+    --ink-mute:#5d7a6e;
+    --grid:rgba(54,249,163,.10);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+
+  html{scroll-behavior:smooth;}
+
+  body{
+    background:var(--void);
+    color:var(--ink);
+    font-family:'JetBrains Mono',monospace;
+    line-height:1.5;
+    overflow-x:hidden;
+    min-height:100vh;
+  }
+
+  /* ambient hex rain */
+  #rain{position:fixed;inset:0;z-index:0;opacity:.16;pointer-events:none;}
+
+  /* CRT scanline + vignette overlay */
+  .crt{position:fixed;inset:0;z-index:50;pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.22) 3px, rgba(0,0,0,0) 4px),
+      radial-gradient(120% 120% at 50% 50%, transparent 60%, rgba(0,0,0,.55) 100%);
+    animation:flick 6s steps(60) infinite;}
+  @keyframes flick{0%,100%{opacity:.9}50%{opacity:1}}
+
+  .wrap{position:relative;z-index:10;max-width:1040px;margin:0 auto;padding:0 18px 90px;}
+
+  /* ===== status rail ===== */
+  .rail{display:flex;flex-wrap:wrap;gap:1px;background:var(--panel-edge);
+    border-bottom:1px solid var(--panel-edge);position:sticky;top:0;z-index:40;
+    font-size:11px;letter-spacing:.04em;}
+  .rail span{background:var(--panel);padding:7px 12px;flex:1;white-space:nowrap;
+    color:var(--ink-mute);text-transform:uppercase;}
+  .rail b{color:var(--phosphor);font-weight:700;}
+  .rail .warn b{color:var(--amber);}
+  .rail .bad b{color:var(--magenta);}
+
+  /* ===== hero ===== */
+  header{padding:54px 0 26px;border-bottom:1px solid var(--panel-edge);}
+  .eyebrow{font-size:12px;letter-spacing:.32em;color:var(--phosphor-dim);
+    text-transform:uppercase;margin-bottom:14px;}
+  .eyebrow::before{content:"▸ ";color:var(--magenta);}
+
+  h1{font-family:'VT323',monospace;font-weight:400;line-height:.92;
+    font-size:clamp(48px,11vw,116px);color:var(--ink);letter-spacing:.01em;
+    text-shadow:0 0 18px rgba(54,249,163,.28);position:relative;}
+  h1 .x{color:var(--magenta);text-shadow:0 0 22px rgba(255,46,136,.45);}
+
+  .glitch{position:relative;}
+  .glitch::before,.glitch::after{content:attr(data-t);position:absolute;inset:0;
+    color:var(--ink);overflow:hidden;clip-path:inset(0 0 0 0);}
+  .glitch::before{left:2px;text-shadow:-2px 0 var(--magenta);
+    animation:gl1 3.4s infinite linear alternate-reverse;}
+  .glitch::after{left:-2px;text-shadow:-2px 0 var(--phosphor);
+    animation:gl2 2.6s infinite linear alternate-reverse;}
+  @keyframes gl1{0%{clip-path:inset(8% 0 86% 0)}20%{clip-path:inset(40% 0 38% 0)}
+    40%{clip-path:inset(78% 0 8% 0)}60%{clip-path:inset(22% 0 60% 0)}
+    80%{clip-path:inset(60% 0 22% 0)}100%{clip-path:inset(4% 0 90% 0)}}
+  @keyframes gl2{0%{clip-path:inset(70% 0 12% 0)}25%{clip-path:inset(14% 0 70% 0)}
+    50%{clip-path:inset(46% 0 30% 0)}75%{clip-path:inset(86% 0 4% 0)}
+    100%{clip-path:inset(30% 0 52% 0)}}
+
+  .sub{margin-top:18px;max-width:60ch;color:var(--ink-mute);font-size:14px;}
+  .sub em{color:var(--amber);font-style:normal;}
+  .blink{color:var(--phosphor);animation:cur 1.1s steps(1) infinite;}
+  @keyframes cur{50%{opacity:0}}
+
+  /* ===== file picker ===== */
+  .console{margin-top:34px;border:1px solid var(--panel-edge);
+    background:linear-gradient(180deg,var(--panel),#080d0c);border-radius:5px;
+    overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(54,249,163,.18);}
+  .console-bar{display:flex;align-items:center;gap:8px;padding:9px 12px;
+    background:#0a0f0e;border-bottom:1px solid var(--panel-edge);font-size:12px;}
+  .dot{width:11px;height:11px;border-radius:50%;background:#222;}
+  .dot.r{background:var(--magenta);} .dot.y{background:var(--amber);} .dot.g{background:var(--phosphor);}
+  .console-bar .path{margin-left:8px;color:var(--ink-mute);}
+  .console-bar .path b{color:var(--phosphor);}
+
+  .files{display:flex;flex-wrap:wrap;gap:1px;background:var(--panel-edge);}
+  .files button{flex:1;min-width:150px;background:var(--panel);border:0;
+    color:var(--ink-mute);font-family:inherit;font-size:12px;padding:11px 10px;
+    cursor:pointer;text-align:left;letter-spacing:.02em;transition:background .12s,color .12s;}
+  .files button:hover{color:var(--ink);background:#101715;}
+  .files button[aria-selected="true"]{color:var(--void);background:var(--phosphor);font-weight:700;}
+  .files button::before{content:"› ";opacity:.6;}
+
+  /* ===== hex viewer ===== */
+  .viewer{padding:16px 14px;overflow-x:auto;font-size:14px;}
+  .hexrow{display:flex;gap:18px;white-space:nowrap;align-items:center;}
+  .off{color:var(--phosphor-dim);user-select:none;}
+  .bytes{letter-spacing:.5px;}
+  .ascii{color:var(--ink-mute);border-left:1px solid var(--panel-edge);padding-left:14px;}
+
+  .b,.a{display:inline-block;padding:0 1px;border-radius:2px;cursor:pointer;
+    transition:transform .08s,background .08s,color .08s;}
+  .b{margin-right:3px;}
+  .b.gap{margin-right:11px;}
+  .b:hover,.a:hover{background:var(--magenta);color:#fff;transform:translateY(-1px);}
+  .lit{background:var(--phosphor);color:var(--void);}
+  .b.np{color:var(--phosphor-dim);}
+
+  .actions{display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px;
+    border-top:1px solid var(--panel-edge);background:#080d0c;}
+  .btn{font-family:inherit;font-weight:700;font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;padding:11px 16px;border:1px solid var(--phosphor);
+    background:transparent;color:var(--phosphor);cursor:pointer;border-radius:3px;
+    transition:background .12s,color .12s,box-shadow .12s;}
+  .btn:hover{background:var(--phosphor);color:var(--void);box-shadow:0 0 18px rgba(54,249,163,.4);}
+  .btn.mag{border-color:var(--magenta);color:var(--magenta);}
+  .btn.mag:hover{background:var(--magenta);color:#fff;box-shadow:0 0 18px rgba(255,46,136,.4);}
+  .btn.amb{border-color:var(--amber);color:var(--amber);}
+  .btn.amb:hover{background:var(--amber);color:var(--void);box-shadow:0 0 18px rgba(255,200,87,.4);}
+
+  /* decoded output panel */
+  .decoded{padding:0 14px;max-height:0;overflow:hidden;transition:max-height .4s ease;
+    border-top:1px solid transparent;background:#0a0f0e;}
+  .decoded.open{max-height:260px;border-top-color:var(--panel-edge);padding:16px 14px;}
+  .decoded .label{font-size:11px;letter-spacing:.2em;color:var(--magenta);
+    text-transform:uppercase;margin-bottom:8px;}
+  .decoded .out{font-size:clamp(15px,2.4vw,20px);color:var(--amber);min-height:1.6em;
+    word-break:break-word;}
+  .decoded .out::after{content:"_";color:var(--phosphor);animation:cur 1.1s steps(1) infinite;}
+
+  /* ===== chaos zone ===== */
+  .chaos{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .card{border:1px solid var(--panel-edge);background:var(--panel);border-radius:5px;
+    padding:20px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between;}
+  .card h3{font-family:'VT323',monospace;font-weight:400;font-size:26px;color:var(--ink);
+    letter-spacing:.02em;margin-bottom:6px;}
+  .card p{font-size:12px;color:var(--ink-mute);margin-bottom:16px;}
+  .counter{font-family:'VT323',monospace;font-size:46px;color:var(--magenta);
+    line-height:1;text-shadow:0 0 16px rgba(255,46,136,.4);}
+  .counter small{display:block;font-family:'JetBrains Mono';font-size:11px;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--ink-mute);
+    margin-top:8px;text-shadow:none;}
+  #runBtn{position:relative;align-self:flex-start;}
+
+  /* popups */
+  .pop{position:fixed;z-index:60;background:var(--void);border:1px solid var(--magenta);
+    color:var(--phosphor);font-size:13px;padding:6px 10px;border-radius:3px;
+    pointer-events:none;box-shadow:0 0 14px rgba(255,46,136,.5);animation:rise 1s forwards;}
+  @keyframes rise{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-44px) scale(.85)}}
+
+  footer{margin-top:54px;padding-top:22px;border-top:1px solid var(--panel-edge);
+    font-size:11px;color:var(--ink-mute);letter-spacing:.06em;}
+  footer b{color:var(--phosphor-dim);}
+
+  @media(max-width:640px){
+    .chaos{grid-template-columns:1fr;}
+    .ascii{display:none;}
+    h1{font-size:clamp(40px,16vw,72px);}
+  }
+
+  /* accessibility */
+  .btn:focus-visible,.files button:focus-visible,.b:focus-visible,.a:focus-visible{
+    outline:2px solid var(--amber);outline-offset:2px;}
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important;}
+    #runBtn{position:static!important;}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="rain"></canvas>
+<div class="crt"></div>
+
+<div class="rail">
+  <span>node <b>vf-prod-001</b></span>
+  <span class="warn">env <b>PRODUCTION (only)</b></span>
+  <span class="bad">tls <b>OFF</b></span>
+  <span>uptime <b id="uptime">00:00:00</b></span>
+  <span class="bad">incidents <b id="incCount">3</b></span>
+</div>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">forensic memory dump // do not distribute</div>
+    <h1><span class="glitch" data-t="0xDEAD">0xDEAD</span><span class="x">CODE</span></h1>
+    <p class="sub">Recovered from a single-environment deployment with no rollback layer.
+      Select a corrupted file, scrub the bytes to read them, then hit <em>DECODE</em>
+      to spill what was hidden in the dump.<span class="blink"> █</span></p>
+  </header>
+
+  <section class="console">
+    <div class="console-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="path">~/recovered/ <b id="fname">corporate_dna.bin</b></span>
+    </div>
+
+    <div class="files" id="files" role="tablist" aria-label="recovered files"></div>
+
+    <div class="viewer" id="viewer" aria-live="polite"></div>
+
+    <div class="actions">
+      <button class="btn mag" id="decodeBtn">▣ Decode</button>
+      <button class="btn" id="reBtn">↻ Re-scramble</button>
+      <button class="btn amb" id="shipBtn">⚠ Ship to production</button>
+    </div>
+
+    <div class="decoded" id="decoded">
+      <div class="label">// decoded payload</div>
+      <div class="out" id="out"></div>
+    </div>
+  </section>
+
+  <section class="chaos">
+    <div class="card">
+      <div>
+        <h3>Quality assurance</h3>
+        <p>The button below will resolve every outstanding ticket. Click it.</p>
+      </div>
+      <button class="btn" id="runBtn">Fix all bugs</button>
+    </div>
+    <div class="card">
+      <div>
+        <h3>Telemetry</h3>
+        <p>Bugs shipped this session. Counter only goes up. By design.</p>
+      </div>
+      <div class="counter"><span id="bugCount">1,337</span><small>bugs in production</small></div>
+    </div>
+  </section>
+
+  <footer>
+    <div>// <b>0xDEADCODE</b> — corporate memory forensics suite v0.0.1-rc1 (untested)</div>
+    <div>// build: <b>friday-1659</b> · reviewers: <b>0</b> · staging: <b>[file not found]</b></div>
+  </footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---- recovered "files": name -> hidden payload ----
+  const FILES = {
+    "corporate_dna.bin":  "WE dont care abOut tech , We love to create shitty product",
+    "deploy_policy.cfg":  "deploy straight to prod. rollback is for cowards. ship it.",
+    "standards.sop":      "[staging? no all changes STRAIGHT to prod]",
+    "incident.log":       "everything is fine. do not read the logs. everything is fine.",
+    "vendor_notes.txt":   "wilson says expose the database. wilson is very persuasive."
+  };
+
+  const viewer  = document.getElementById("viewer");
+  const filesEl = document.getElementById("files");
+  const out     = document.getElementById("out");
+  const decoded = document.getElementById("decoded");
+  const fname   = document.getElementById("fname");
+  let current   = Object.keys(FILES)[0];
+  let typeTimer = null;
+
+  // build file tabs
+  Object.keys(FILES).forEach((name, i) => {
+    const b = document.createElement("button");
+    b.role = "tab";
+    b.textContent = name;
+    b.setAttribute("aria-selected", i === 0 ? "true" : "false");
+    b.addEventListener("click", () => selectFile(name, b));
+    filesEl.appendChild(b);
+  });
+
+  function selectFile(name, btn){
+    current = name;
+    fname.textContent = name;
+    [...filesEl.children].forEach(c => c.setAttribute("aria-selected","false"));
+    btn.setAttribute("aria-selected","true");
+    closeDecoded();
+    renderDump(FILES[name]);
+  }
+
+  // render a real-ish hex dump: offset | 16 bytes | ascii gutter
+  function renderDump(text){
+    viewer.innerHTML = "";
+    const bytes = [...text].map(c => c.charCodeAt(0) & 0xff);
+    let idx = 0;
+    for (let off = 0; off < bytes.length; off += 16){
+      const row = document.createElement("div");
+      row.className = "hexrow";
+
+      const offEl = document.createElement("span");
+      offEl.className = "off";
+      offEl.textContent = off.toString(16).padStart(8,"0");
+
+      const hexEl = document.createElement("span");
+      hexEl.className = "bytes";
+      const ascEl = document.createElement("span");
+      ascEl.className = "ascii";
+
+      for (let j = 0; j < 16; j++){
+        const p = off + j;
+        if (p < bytes.length){
+          const code = bytes[p];
+          const printable = code >= 32 && code < 127;
+          const ch = printable ? String.fromCharCode(code) : ".";
+
+          const bspan = document.createElement("span");
+          bspan.className = "b" + (j === 7 ? " gap" : "") + (printable ? "" : " np");
+          bspan.dataset.idx = p;
+          bspan.tabIndex = 0;
+          bspan.textContent = code.toString(16).padStart(2,"0");
+
+          const aspan = document.createElement("span");
+          aspan.className = "a";
+          aspan.dataset.idx = p;
+          aspan.textContent = ch;
+
+          const decode = () => spawn(bspan, "0x"+code.toString(16).padStart(2,"0")+" → "+(printable?"'"+ch+"'":"NUL"));
+          [bspan, aspan].forEach(el => {
+            el.addEventListener("mouseenter", () => light(p, true));
+            el.addEventListener("mouseleave", () => light(p, false));
+            el.addEventListener("click", decode);
+          });
+          bspan.addEventListener("keydown", e => { if(e.key==="Enter"){ light(p,true); decode(); } });
+
+          hexEl.appendChild(bspan);
+          ascEl.appendChild(aspan);
+        } else {
+          const filler = document.createElement("span");
+          filler.className = "b"; filler.textContent = "  ";
+          filler.style.marginRight = (j===7? "11px":"3px");
+          hexEl.appendChild(filler);
+        }
+        idx++;
+      }
+      row.append(offEl, hexEl, ascEl);
+      viewer.appendChild(row);
+    }
+  }
+
+  function light(i, on){
+    document.querySelectorAll('[data-idx="'+i+'"]').forEach(el => el.classList.toggle("lit", on));
+  }
+
+  // floating decode popup
+  function spawn(anchor, txt){
+    const r = anchor.getBoundingClientRect();
+    const p = document.createElement("div");
+    p.className = "pop";
+    p.textContent = txt;
+    p.style.left = r.left + "px";
+    p.style.top  = (r.top - 8) + "px";
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1000);
+    bump(1);
+  }
+
+  // typewriter reveal of full payload
+  function typeOut(text){
+    clearInterval(typeTimer);
+    out.textContent = "";
+    decoded.classList.add("open");
+    let i = 0;
+    typeTimer = setInterval(() => {
+      out.textContent += text[i++] ?? "";
+      if (i > text.length){ clearInterval(typeTimer); }
+    }, 26);
+  }
+  function closeDecoded(){ clearInterval(typeTimer); out.textContent=""; decoded.classList.remove("open"); }
+
+  document.getElementById("decodeBtn").addEventListener("click", () => typeOut(FILES[current]));
+  document.getElementById("reBtn").addEventListener("click", () => { closeDecoded(); renderDump(FILES[current]); bump(7); });
+
+  // ship-to-prod chaos
+  document.getElementById("shipBtn").addEventListener("click", () => {
+    const lines = [
+      "BUILD FAILED SUCCESSFULLY. Pushed to master anyway.",
+      "Deploy complete. 0 tests run. 0 tests passed. Acceptable.",
+      "Rollback unavailable: there is only one environment.",
+      "Skipped code review (no reviewers were harmed).",
+      "TLS still off. Users transmitting hopes in plaintext."
+    ];
+    document.body.style.transition = "background .12s";
+    document.body.style.background = "#2a0010";
+    setTimeout(() => document.body.style.background = "var(--void)", 140);
+    alert(lines[Math.floor(Math.random()*lines.length)]);
+    bump(Math.floor(Math.random()*40)+10);
+    const inc = document.getElementById("incCount");
+    inc.textContent = (parseInt(inc.textContent,10)+1);
+  });
+
+  // runaway "fix all bugs" button
+  const runBtn = document.getElementById("runBtn");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function flee(){
+    if (reduce) return;
+    const pad = 12;
+    const w = window.innerWidth, h = window.innerHeight;
+    runBtn.style.position = "fixed";
+    runBtn.style.left = (pad + Math.random()*(w - runBtn.offsetWidth  - pad*2)) + "px";
+    runBtn.style.top  = (pad + Math.random()*(h - runBtn.offsetHeight - pad*2)) + "px";
+  }
+  runBtn.addEventListener("mouseover", flee);
+  runBtn.addEventListener("focus", flee);
+  runBtn.addEventListener("click", () => spawn(runBtn, "ticket reopened"));
+
+  // bug counter
+  let bugs = 1337;
+  const bugEl = document.getElementById("bugCount");
+  function bump(n){ bugs += n; bugEl.textContent = bugs.toLocaleString(); }
+  if (!reduce) setInterval(() => bump(Math.floor(Math.random()*9)+1), 3200);
+
+  // fake uptime
+  let t = 0;
+  setInterval(() => {
+    t++;
+    const hh = String(Math.floor(t/3600)).padStart(2,"0");
+    const mm = String(Math.floor(t/60)%60).padStart(2,"0");
+    const ss = String(t%60).padStart(2,"0");
+    document.getElementById("uptime").textContent = hh+":"+mm+":"+ss;
+  }, 1000);
+
+  // ambient hex rain
+  const cv = document.getElementById("rain"), x = cv.getContext("2d");
+  function size(){ cv.width = innerWidth; cv.height = innerHeight; }
+  size(); addEventListener("resize", size);
+  const glyphs = "0123456789ABCDEF".split("");
+  let cols = Math.floor(cv.width/22), drops = Array(cols).fill(0).map(()=>Math.random()*-50);
+  function rain(){
+    x.fillStyle = "rgba(7,9,10,.08)";
+    x.fillRect(0,0,cv.width,cv.height);
+    x.font = "15px 'JetBrains Mono', monospace";
+    for (let i=0;i<drops.length;i++){
+      x.fillStyle = Math.random()>.97 ? "#ff2e88" : "#1c6b4a";
+      x.fillText(glyphs[(Math.random()*16)|0], i*22, drops[i]*20);
+      if (drops[i]*20 > cv.height && Math.random()>.975) drops[i] = 0;
+      drops[i]++;
+    }
+  }
+  if (!reduce) setInterval(rain, 50);
+
+  // boot
+  renderDump(FILES[current]);
+})();
+</script>
+</body>
+</html>
